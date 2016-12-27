@@ -21,7 +21,6 @@ import android.text.format.DateUtils;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -51,6 +50,7 @@ public class ArticleDetailFragment extends Fragment implements
     private ImageView mPhotoView;
     private Toolbar mToolbar;
     private View mAppBar;
+    private boolean mMenuVisible;
 
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
@@ -74,17 +74,6 @@ public class ArticleDetailFragment extends Fragment implements
         if (getArguments().containsKey(ARG_ITEM_ID)) {
             mItemId = getArguments().getLong(ARG_ITEM_ID);
         }
-
-        setHasOptionsMenu(true);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            getActivity().finish();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -122,14 +111,20 @@ public class ArticleDetailFragment extends Fragment implements
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
-        ((AppCompatActivity) getActivity()).setSupportActionBar(mToolbar);
-        ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
+        if (mMenuVisible) setupActionBar();
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void setMenuVisibility(boolean menuVisible) {
+        mMenuVisible = menuVisible;
+        super.setMenuVisibility(menuVisible);
+        if (menuVisible && getActivity() != null) setupActionBar();
+    }
+
+    private void setupActionBar() {
+        ((AppCompatActivity) getActivity()).setSupportActionBar(mToolbar);
+        ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
+        actionBar.setDisplayHomeAsUpEnabled(true);
     }
 
     private void bindViews() {
