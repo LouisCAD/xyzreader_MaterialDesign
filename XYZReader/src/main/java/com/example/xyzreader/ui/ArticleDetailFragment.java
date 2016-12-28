@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.design.widget.CollapsingToolbarLayout;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.app.ShareCompat;
@@ -30,6 +31,8 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.ImageLoader;
 import com.example.xyzreader.R;
 import com.example.xyzreader.data.ArticleLoader;
+
+import static android.support.design.widget.Snackbar.LENGTH_LONG;
 
 /**
  * A fragment representing a single Article detail screen. This fragment is
@@ -124,6 +127,7 @@ public class ArticleDetailFragment extends Fragment implements
     private void setupActionBar() {
         ((AppCompatActivity) getActivity()).setSupportActionBar(mToolbar);
         ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
+        assert actionBar != null;
         actionBar.setDisplayHomeAsUpEnabled(true);
     }
 
@@ -143,14 +147,18 @@ public class ArticleDetailFragment extends Fragment implements
             mRootView.animate().alpha(1);
             final String title = mCursor.getString(ArticleLoader.Query.TITLE);
             toolbarLayout.setTitle(title);
-            bylineView.setText(Html.fromHtml(
-                    DateUtils.getRelativeTimeSpanString(
-                            mCursor.getLong(ArticleLoader.Query.PUBLISHED_DATE),
-                            System.currentTimeMillis(), DateUtils.HOUR_IN_MILLIS,
-                            DateUtils.FORMAT_ABBREV_ALL).toString()
-                            + " by <font color='#000'>"
-                            + mCursor.getString(ArticleLoader.Query.AUTHOR)
-                            + "</font>"));
+            String byLineText = DateUtils.getRelativeTimeSpanString(
+                    mCursor.getLong(ArticleLoader.Query.PUBLISHED_DATE),
+                    System.currentTimeMillis(), DateUtils.HOUR_IN_MILLIS,
+                    DateUtils.FORMAT_ABBREV_ALL).toString()
+                    + " by <font color='#000'>"
+                    + mCursor.getString(ArticleLoader.Query.AUTHOR)
+                    + "</font>";
+            //noinspection deprecation
+            bylineView.setText(Build.VERSION.SDK_INT < Build.VERSION_CODES.N ?
+                    Html.fromHtml(byLineText)
+                    : Html.fromHtml(byLineText, 0));
+            //noinspection deprecation
             Spanned body = Build.VERSION.SDK_INT < Build.VERSION_CODES.N ?
                     Html.fromHtml(mCursor.getString(ArticleLoader.Query.BODY))
                     : Html.fromHtml(mCursor.getString(ArticleLoader.Query.BODY), 0);
@@ -161,7 +169,7 @@ public class ArticleDetailFragment extends Fragment implements
                         public void onResponse(ImageLoader.ImageContainer imageContainer, boolean b) {
                             Bitmap bitmap = imageContainer.getBitmap();
                             if (bitmap != null) {
-                                Palette p = Palette.generate(bitmap, 12);
+                                Palette p = Palette.from(bitmap).generate();
                                 mMutedColor = p.getDarkMutedColor(0xFF333333);
                                 mPhotoView.setImageBitmap(imageContainer.getBitmap());
                                 toolbarLayout.setContentScrimColor(mMutedColor);
@@ -171,7 +179,8 @@ public class ArticleDetailFragment extends Fragment implements
 
                         @Override
                         public void onErrorResponse(VolleyError volleyError) {
-
+                            Snackbar.make(mRootView, R.string.unable_to_load_image, LENGTH_LONG)
+                                    .show();
                         }
                     });
         } else {
