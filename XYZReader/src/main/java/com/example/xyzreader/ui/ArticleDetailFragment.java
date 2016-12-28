@@ -3,6 +3,7 @@ package com.example.xyzreader.ui;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -27,10 +28,10 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.ImageLoader;
 import com.example.xyzreader.R;
 import com.example.xyzreader.data.ArticleLoader;
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Target;
 
 import static android.support.design.widget.Snackbar.LENGTH_LONG;
 
@@ -48,12 +49,32 @@ public class ArticleDetailFragment extends Fragment implements
     private Cursor mCursor;
     private long mItemId;
     private View mRootView;
-    private int mMutedColor = 0xFF333333;
 
     private ImageView mPhotoView;
     private Toolbar mToolbar;
     private View mAppBar;
     private boolean mMenuVisible;
+    private final Target mBitmapToPaletteTarget = new Target() {
+        @Override
+        public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom loadedFrom) {
+            Palette p = Palette.from(bitmap).generate();
+            int mutedColor = p.getDarkMutedColor(0xFF333333);
+            mToolbarLayout.setContentScrimColor(mutedColor);
+            mAppBar.setBackgroundColor(mutedColor);
+        }
+
+        @Override
+        public void onBitmapFailed(Drawable drawable) {
+            Snackbar.make(mRootView, R.string.unable_to_load_image, LENGTH_LONG)
+                    .show();
+        }
+
+        @Override
+        public void onPrepareLoad(Drawable drawable) {
+
+        }
+    };
+    private CollapsingToolbarLayout mToolbarLayout;
 
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
@@ -106,6 +127,7 @@ public class ArticleDetailFragment extends Fragment implements
             }
         });
         mToolbar = (Toolbar) mRootView.findViewById(R.id.toolbar);
+        mToolbarLayout = (CollapsingToolbarLayout) mRootView.findViewById(R.id.toolbar_layout);
         mAppBar = mRootView.findViewById(R.id.app_bar);
 
         bindViews();
@@ -139,14 +161,13 @@ public class ArticleDetailFragment extends Fragment implements
         TextView bylineView = (TextView) mRootView.findViewById(R.id.article_byline);
         bylineView.setMovementMethod(new LinkMovementMethod());
         TextView bodyView = (TextView) mRootView.findViewById(R.id.article_body);
-        final CollapsingToolbarLayout toolbarLayout = (CollapsingToolbarLayout) mRootView.findViewById(R.id.toolbar_layout);
 
         if (mCursor != null) {
             mRootView.setAlpha(0);
             mRootView.setVisibility(View.VISIBLE);
             mRootView.animate().alpha(1);
             final String title = mCursor.getString(ArticleLoader.Query.TITLE);
-            toolbarLayout.setTitle(title);
+            mToolbarLayout.setTitle(title);
             String byLineText = DateUtils.getRelativeTimeSpanString(
                     mCursor.getLong(ArticleLoader.Query.PUBLISHED_DATE),
                     System.currentTimeMillis(), DateUtils.HOUR_IN_MILLIS,
@@ -163,29 +184,16 @@ public class ArticleDetailFragment extends Fragment implements
                     Html.fromHtml(mCursor.getString(ArticleLoader.Query.BODY))
                     : Html.fromHtml(mCursor.getString(ArticleLoader.Query.BODY), 0);
             bodyView.setText(body);
-            ImageLoaderHelper.getInstance(getActivity()).getImageLoader()
-                    .get(mCursor.getString(ArticleLoader.Query.PHOTO_URL), new ImageLoader.ImageListener() {
-                        @Override
-                        public void onResponse(ImageLoader.ImageContainer imageContainer, boolean b) {
-                            Bitmap bitmap = imageContainer.getBitmap();
-                            if (bitmap != null) {
-                                Palette p = Palette.from(bitmap).generate();
-                                mMutedColor = p.getDarkMutedColor(0xFF333333);
-                                mPhotoView.setImageBitmap(imageContainer.getBitmap());
-                                toolbarLayout.setContentScrimColor(mMutedColor);
-                                mAppBar.setBackgroundColor(mMutedColor);
-                            }
-                        }
-
-                        @Override
-                        public void onErrorResponse(VolleyError volleyError) {
-                            Snackbar.make(mRootView, R.string.unable_to_load_image, LENGTH_LONG)
-                                    .show();
-                        }
-                    });
+            final String photoUrl = mCursor.getString(ArticleLoader.Query.PHOTO_URL);
+            Picasso.with(getContext())
+                    .load(photoUrl)
+                    .into(mPhotoView);
+            Picasso.with(getContext())
+                    .load(photoUrl)
+                    .into(mBitmapToPaletteTarget);
         } else {
             mRootView.setVisibility(View.GONE);
-            toolbarLayout.setTitle("N/A");
+            mToolbarLayout.setTitle("N/A");
             bylineView.setText("N/A");
             bodyView.setText("N/A");
         }
@@ -204,14 +212,12 @@ public class ArticleDetailFragment extends Fragment implements
             }
             return;
         }
-
         mCursor = cursor;
         if (mCursor != null && !mCursor.moveToFirst()) {
             Log.e(TAG, "Error reading item detail cursor");
             mCursor.close();
             mCursor = null;
         }
-
         bindViews();
     }
 
@@ -220,5 +226,4 @@ public class ArticleDetailFragment extends Fragment implements
         mCursor = null;
         bindViews();
     }
-
 }
